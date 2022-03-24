@@ -1,0 +1,67 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <BH1750Lib.h>
+
+// Initialise the light sensor.
+BH1750Lib lightSensor;
+
+// The value for full sunlight 
+int sunlight =  5000;   //lumens chart say around 5000 is full sunshine
+int lastFiveMinutes[5];
+int nextIndex = 0;
+bool wasDark = true;
+
+// IFTTT event name
+String event = "Light Conditions";
+
+// IFTTT recipe data
+String eventDatalight = "Light";
+String eventDatadark = "Dark";
+
+// A reading is taken every minute
+int readingTime = 1000;
+
+void setup(){
+  Serial.begin(9600);
+  lightSensor.begin(BH1750LIB_MODE_CONTINUOUSHIGHRES);
+}
+
+void loop() {
+    // Take the reading
+    int lux = lightSensor.lightLevel();
+    // Print to serial 
+    Serial.print("Light: ");
+    Serial.print(lux);
+    Serial.println(" lx");
+    Serial.print(Time.hourFormat12());
+    Serial.print(":");
+    Serial.print(Time.minute());
+    Serial.print(":");
+    Serial.print(Time.second());
+    
+    // The last 5 minutes values are averaged to ensure any drop in light is sustained
+    lastFiveMinutes[nextIndex] = lux;
+    nextIndex++;
+    
+    if (nextIndex > 2) 
+    {
+        nextIndex = 0;
+        if (isSunlight(lux) && wasDark) {
+            wasDark = false;
+            // Send notification that sunlight is on
+            Particle.publish(event, eventDatalight);
+        } else if (!isSunlight(lux) && !wasDark) {
+            wasDark = true;
+            // Send notification that sunlight is off
+            Particle.publish(event, eventDatadark);
+        }
+    }
+        
+    
+    delay(readingTime);
+}
+
+// Function to return true if the sensor is sensing light above 5000 lx
+bool isSunlight(int lux) 
+{
+    return lux >= sunlight;
+}
